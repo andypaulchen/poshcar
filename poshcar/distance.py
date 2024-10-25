@@ -213,15 +213,14 @@ def matrix_bonding_average(data, mode, tolerance, bme_correlated = 'amaiwana', v
         display(df) # Display example (native cell)
 
         # Display and return bma
-        df1 = pd.DataFrame(bma, columns=runiq, index=atomspp['POSCAR Site'])
-        print("bma - average local coordination by environment, expanded")
-        display(df1) # Display example (native cell)
-
+        #df1 = pd.DataFrame(bma, columns=runiq, index=atomspp['POSCAR Site'])
+        #print("bma - average local coordination by environment, expanded")
+        #display(df1) # Display example (native cell)
 
         # Display and return bmc
-        df2 = pd.DataFrame(bmc, columns=runiq, index=atomspp['POSCAR Site'])
-        print("bme - average local coordination by POSCAR site:")
-        display(df2) # Display example (native cell)
+        #df2 = pd.DataFrame(bmc, columns=runiq, index=atomspp['POSCAR Site'])
+        #print("bme - average local coordination by POSCAR site:")
+        #display(df2) # Display example (native cell)
     
     # Calculate "unaverageness" aka Pauling-5 penalty 
     unaverageness = np.linalg.norm(bma-bmc, 'fro')

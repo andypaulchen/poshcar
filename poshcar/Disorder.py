@@ -81,7 +81,7 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
 
     # Load CHGNET bc we defo need to use this
     chgnet = CHGNet.load()
-    relaxer = StructOptimizer()
+    if structure_opt: relaxer = StructOptimizer()
 
     # Take care of the target file (could be source file input to supercell)
     # or maybe even a user-defined cell for correlated disorder
@@ -115,6 +115,7 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
             datalist.append(virtual)
 
             # append to bond lists
+            display(bme)
             bondlist.append(bme)
             # bonding matrix distance = difference in bme + Pauling-5 penalty
             bd_metric = np.linalg.norm(bme - bme_targ, 'fro') 
