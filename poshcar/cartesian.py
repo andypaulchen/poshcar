@@ -39,7 +39,7 @@ def switchcart(data, verbose = True):
     # Conversion operation
     for line in range(len(data)):
         if line > dcindex:
-            F = np.array(re.findall(r"-?\d+\.\d+", data[line].strip()))
+            F = np.array(re.findall(r"-?\d+\.\d+", data[line].strip()))[:3]
             # Read seldyn flags for later
             if is_seldyn(data): flags = re.findall(r"\w", data[line].strip())[-3:]
             # Convert the line - MATRIX MULTIPLICATION

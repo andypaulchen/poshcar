@@ -9,7 +9,6 @@ from poshcar.supercell import *
 from poshcar.atomsub import *
 from poshcar.distance import *
 from poshcar.additive import *
-import random
 import os
 
 import ase.io.cif as asecif
