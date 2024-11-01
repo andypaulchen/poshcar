@@ -29,6 +29,6 @@ Alternatively, use `pip install git+https://github.com/andypaulchen/poshcar.git`
 
 ## Changelog
 You can visit the changelog in `docs/changelog.txt` for a short summary of changes I made over the years. I'm a bit lazy in the documentation, though.<br>
-**Current version:** 2.0.0<br>
-**Last update:** 24 October 2024
+**Current version:** 2.0.1<br>
+**Last update:** 1 November 2024
 
