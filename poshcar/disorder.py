@@ -52,6 +52,7 @@ def cif2vasp_occ(ciffile, verbose = True):
     writefile(vaspdata, filename_header+'.vasp', verbose)
     return vaspdata
 
+
 def composition(data, verbose = True):
     # Return vector containing fractional 
     df = elemindices(data, verbose)
@@ -84,7 +85,7 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
 
     # Take care of the target file (could be source file input to supercell)
     # or maybe even a user-defined cell for correlated disorder
-    runiq, bme_targ, unav = matrix_bonding_average(target, 'element', bond_threshold, verbose = True)
+    runiq, bme_targ, unav = matrix_bonding_average(target, 'element', bond_threshold, verbose = verbose)
     original_comp = composition(target, verbose) # register real compositional data
 
     # Iterate over all .cif files in folder
@@ -94,7 +95,7 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
             idlist.append(filename_header)
 
             # Structural relaxation (if any)
-            chgnet_structure = Structure.from_file(path+ciffile)
+            chgnet_structure = Structure.from_file(os.path.join(path, ciffile))
             # relagsation
             if structure_opt:
                 result = relaxer.relax(chgnet_structure, verbose=False)
@@ -104,9 +105,10 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
 
             # Convert cif to vasp for our matrices
             #final_structure.to(filename = path+filename_header+"_final.vasp", fmt = "poscar")
-            chgnet_structure.to(filename = path+filename_header+".vasp", fmt = "poscar")
+            filepath = os.path.join(path, filename_header+".vasp")
+            chgnet_structure.to(filename = filepath, fmt = "poscar")
             #virtual = readfile(path+filename_header+"_final.vasp")
-            virtual = readfile(path+filename_header+".vasp")
+            virtual = readfile(filepath)
             if verbose: printvaspdata(virtual)
             runiq, bme, unaverageness = matrix_bonding_average(virtual, 'element', bond_threshold, bme_correlated = bme_targ, verbose = verbose)
 
@@ -114,7 +116,7 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
             datalist.append(virtual)
 
             # append to bond lists
-            display(bme)
+            if verbose: display(bme)
             bondlist.append(bme)
             # bonding matrix distance = difference in bme + Pauling-5 penalty
             bd_metric = np.linalg.norm(bme - bme_targ, 'fro') 
@@ -141,6 +143,6 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
 
     summary = pd.DataFrame({'Name': idlist, 'BondingProfile': bondlist, 'MatrixDistance' : bdlist1, 'Unaverageness' : bdlist2, 'BondDiff' : bdlist, 'Composition': complist, 'CompDiff': cdlist, 'FormationEnergy': E_list})
     summary.to_csv(path+'/VirtualLibrary.csv')
-    display(summary)
+    if verbose: display(summary)
     print("Summary of results written to _operations/VirtualLibrary.csv")
     return datalist, summary
