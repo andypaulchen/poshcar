@@ -22,10 +22,9 @@ Interdependencies of modules are illustrated in the diagram below. The dependenc
 ase, pyvis, rdkit, scipy, pymatgen, chgnet, pandas, networkx
 
 ## How to install
-Download the package, `cd` to the folder where `setup.py` is, and then run the pip install (`pip install .`).<br>
-If you would like to edit and test the code, run pip in the editable mode (`pip install -e .`). <br>
-A demonstration can be found in `tests/_demo/test-1-core.ipynb`.<br>
-Alternatively, use `pip install git+https://github.com/andypaulchen/poshcar.git`. <br>
+<b>PyPI release: </b>`pip install poshcar`<br>
+<b>Current github instance: </b>`pip install git+https://github.com/andypaulchen/poshcar.git`
+<b>Developer install (FAFO) version: </b>Download the package, `cd` to the folder where `setup.py` is, and then run the edit mode pip install (`pip install -e .`).<br>
 
 ## Changelog
 You can visit the changelog in `docs/changelog.txt` for a short summary of changes I made over the years. I'm a bit lazy in the documentation, though.<br>

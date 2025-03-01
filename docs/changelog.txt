@@ -39,3 +39,6 @@ Some functions now come with a verbosity switch. This will aid in.. stuff..
 
 <1 November 2024>
 (v2.0.1) Fixed issue of reading coordinate lines with flags.
+
+<1 March 2025>
+(v2.0.2) fixed some issues regarding verbosity (VirtualLibrary)
