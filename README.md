@@ -23,7 +23,7 @@ ase, pyvis, rdkit, scipy, pymatgen, chgnet, pandas, networkx
 
 ## How to install
 <b>PyPI release: </b>`pip install poshcar`<br>
-<b>Current github instance: </b>`pip install git+https://github.com/andypaulchen/poshcar.git`
+<b>Current github instance: </b>`pip install git+https://github.com/andypaulchen/poshcar.git`<br>
 <b>Developer install (FAFO) version: </b>Download the package, `cd` to the folder where `setup.py` is, and then run the edit mode pip install (`pip install -e .`).<br>
 
 ## Changelog
