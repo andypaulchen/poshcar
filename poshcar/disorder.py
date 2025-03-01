@@ -9,8 +9,8 @@ from poshcar.supercell import *
 from poshcar.atomsub import *
 from poshcar.distance import *
 from poshcar.additive import *
-import os
 
+from pathlib import Path
 import ase.io.cif as asecif
 from chgnet.model.model import CHGNet
 from chgnet.model import StructOptimizer
@@ -55,7 +55,7 @@ def cif2vasp_occ(ciffile, verbose = True):
 
 def composition(data, verbose = True):
     # Return vector containing fractional 
-    df = elemindices(data, verbose)
+    df = elemindices(data, verbose = False)
     total = df['Occupancy'].sum()
     sum_by_spp = df.groupby('Species')['Occupancy'].sum()
     proportions = sum_by_spp/total
@@ -63,7 +63,7 @@ def composition(data, verbose = True):
     return proportions.values
 
 
-def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, structure_opt = True, verbose = True):
+def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, chgnet = None, structure_opt = None, verbose = True):
     # Source: a folder (path) already populated by virtual cells from supercell software
     # No further filling required!!
     # Check for target composition (target is compulsory)
@@ -80,69 +80,78 @@ def VirtualLibrary(path, target, pauling_weight = 1, bond_threshold = 0.1, struc
     E_list   = [] # chgnet total energies
 
     # Load CHGNET bc we defo need to use this
-    chgnet = CHGNet.load()
-    if structure_opt: relaxer = StructOptimizer()
+    if chgnet == None:
+        chgnet = CHGNet.load()
+    if structure_opt == True: # if we want to relax the structures, but don't pass in the relaxer
+        relaxer = StructOptimizer()
 
     # Take care of the target file (could be source file input to supercell)
     # or maybe even a user-defined cell for correlated disorder
-    runiq, bme_targ, unav = matrix_bonding_average(target, 'element', bond_threshold, verbose = verbose)
-    original_comp = composition(target, verbose) # register real compositional data
+    bme_targ = matrix_bonding_average(target, 'element', bond_threshold, verbose = verbose)[1]
+    original_comp = composition(target, verbose = verbose) # register real compositional data
 
     # Iterate over all .cif files in folder
-    for ciffile in os.listdir(path):
-        if ciffile.endswith('.cif'):
-            filename_header = ciffile[:-4] #output to same place as input
-            idlist.append(filename_header)
+    path = Path(path)  # Ensure the path is a Path object
+    for ciffile in path.glob("*.cif"):
+        filename_header = ciffile.stem  # Extract filename without extension
+        idlist.append(filename_header)
 
-            # Structural relaxation (if any)
-            chgnet_structure = Structure.from_file(os.path.join(path, ciffile))
-            # relagsation
-            if structure_opt:
-                result = relaxer.relax(chgnet_structure, verbose=False)
-                print(f"\nCHGNet took {len(result['trajectory'])} steps. Relaxed structure:")
-                final_structure = result['final_structure']
-            else: final_structure = chgnet_structure
+        # Structural relaxation (if any)
+        chgnet_structure = Structure.from_file(ciffile)
 
-            # Convert cif to vasp for our matrices
-            #final_structure.to(filename = path+filename_header+"_final.vasp", fmt = "poscar")
-            filepath = os.path.join(path, filename_header+".vasp")
-            chgnet_structure.to(filename = filepath, fmt = "poscar")
-            #virtual = readfile(path+filename_header+"_final.vasp")
-            virtual = readfile(filepath)
-            if verbose: printvaspdata(virtual)
-            runiq, bme, unaverageness = matrix_bonding_average(virtual, 'element', bond_threshold, bme_correlated = bme_targ, verbose = verbose)
+        # Relaxation step if specified
+        if structure_opt:
+            result = relaxer.relax(chgnet_structure, verbose=False)
+            print(f"\nCHGNet took {len(result['trajectory'])} steps. Relaxed structure:")
+            final_structure = result['final_structure']
+        else:
+            final_structure = chgnet_structure
 
-            # append to datalist
-            datalist.append(virtual)
+        # Convert cif to vasp for matrices
+        filepath = path / f"{filename_header}.vasp"
+        chgnet_structure.to(filename=filepath, fmt="poscar")
 
-            # append to bond lists
-            if verbose: display(bme)
-            bondlist.append(bme)
-            # bonding matrix distance = difference in bme + Pauling-5 penalty
-            bd_metric = np.linalg.norm(bme - bme_targ, 'fro') 
-            print("Bonding matrix distance: ", bd_metric, " Unaverageness: ", unaverageness)
-            bdlist1.append(bd_metric)
-            bdlist2.append(unaverageness)
-            bdlist.append(bd_metric + pauling_weight*unaverageness)
-            #bdlist.append(bd_metric)
+        # Read the VASP file
+        virtual = readfile(str(filepath))
+        if verbose: printvaspdata(virtual)
 
-            # append to composition lists
-            virtual_comp = composition(virtual, verbose)
-            complist.append(virtual_comp)
-            try: compdist = distance(original_comp, virtual_comp)
-            except: 
-                print("Elements mismatch! (possibly all atoms of certain species removed?")
-                compdist = "err" # this is not very probable just because of compounded probabilities!
-            cdlist.append(compdist)
+        # Run matrix bonding average
+        runiq, bme, unaverageness = matrix_bonding_average(virtual, 'element', bond_threshold, bme_correlated=bme_targ, verbose=False)
 
-            # CHGNET total energy
-            prediction = chgnet.predict_structure(final_structure)
-            totalenergy = float(prediction['e'])
-            if verbose: print(f"CHGNet-predicted energy (eV/atom)):\n{totalenergy}\n")
-            E_list.append(totalenergy)
+        # Append to data lists
+        datalist.append(virtual)
+
+        # Append to bond lists
+        if verbose: display(bme)
+        bondlist.append(bme)
+
+        # Bonding matrix distance
+        bd_metric = np.linalg.norm(bme - bme_targ, 'fro')
+        print("Bonding matrix distance: ", bd_metric, " Unaverageness: ", unaverageness)
+        bdlist1.append(bd_metric)
+        bdlist2.append(unaverageness)
+        bdlist.append(bd_metric + pauling_weight * unaverageness)
+
+        # Append to composition lists
+        virtual_comp = composition(virtual, verbose=False)
+        complist.append(virtual_comp)
+
+        try: 
+            compdist = distance(original_comp, virtual_comp)
+        except: 
+            print("Elements mismatch! (possibly all atoms of certain species removed?)")
+            compdist = "err"  # Unlikely due to compounded probabilities!
+        cdlist.append(compdist)
+
+        # CHGNET total energy prediction
+        prediction = chgnet.predict_structure(final_structure)
+        totalenergy = float(prediction['e'])
+        if verbose: 
+            print(f"CHGNet-predicted energy (eV/atom):\n{totalenergy}\n")
+        E_list.append(totalenergy)
 
     summary = pd.DataFrame({'Name': idlist, 'BondingProfile': bondlist, 'MatrixDistance' : bdlist1, 'Unaverageness' : bdlist2, 'BondDiff' : bdlist, 'Composition': complist, 'CompDiff': cdlist, 'FormationEnergy': E_list})
-    summary.to_csv(path+'/VirtualLibrary.csv')
+    summary.to_csv(Path(path) / 'VirtualLibrary.csv')
     if verbose: display(summary)
-    print("Summary of results written to _operations/VirtualLibrary.csv")
+    print("Summary of results written to VirtualLibrary.csv")
     return datalist, summary

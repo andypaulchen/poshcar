@@ -107,7 +107,7 @@ def elemindices(data, verbose = True):
     return atomspp
 
 def matrix_distances(data, verbose = True):
-    atomspp = elemindices(data) # Header extraction
+    atomspp = elemindices(data, verbose = verbose) # Header extraction
     ns, allcoord = images(data) # allcoord extraction - ns = number of atoms in cell
     
     distance_matrix = np.zeros((27,ns,ns))
@@ -125,8 +125,8 @@ def matrix_distances(data, verbose = True):
     return vectors_matrix, distance_matrix  
 
 def matrix_bonding(data, tolerance, verbose = True):
-    vector_matrix, distance_matrix = matrix_distances(data, verbose = False) # Extract distance matrix, atom indices
-    atomspp = elemindices(data)
+    distance_matrix = matrix_distances(data, verbose = False)[1] # Extract distance matrix, atom indices
+    atomspp = elemindices(data, verbose = verbose)
     ns = len(list(atomspp['POSCAR Site']))
     covalent_radius_a = [x/100 for x in covalent_radius_pm]
     # Retrieve atomic numbers
@@ -157,7 +157,7 @@ def matrix_bonding_average(data, mode, tolerance, bme_correlated = 'amaiwana', v
     # Edit of 10 Sep 2024: deviations from the mean are recorded in a separate matrix to output
     # bme_correlated specified if another averaged matrix needs to be used (this is in the case of correlated disorder)
 
-    atomspp = elemindices(data, verbose) # What atoms are in here
+    atomspp = elemindices(data, verbose = verbose) # What atoms are in here
     weights = atomspp['Occupancy']
     bms = matrix_bonding(data, tolerance, verbose = False).sum(0)
 
@@ -224,7 +224,7 @@ def matrix_bonding_average(data, mode, tolerance, bme_correlated = 'amaiwana', v
     
     # Calculate "unaverageness" aka Pauling-5 penalty 
     unaverageness = np.linalg.norm(bma-bmc, 'fro')
-    print("Unaverageness: ", unaverageness)
+    if verbose: print("Unaverageness: ", unaverageness)
 
     return runiq, bme, unaverageness
 
