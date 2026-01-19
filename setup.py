@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="poshcar",
-    version="2.1.0",
+    version="2.1.1",
     description="Crystal structure engine for VASP POSCAR files",
     packages=find_packages(),
     install_requires=[
