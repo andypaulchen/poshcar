@@ -28,6 +28,6 @@ ase, pyvis, rdkit, scipy, pymatgen, chgnet, pandas, networkx
 
 ## Changelog
 You can visit the changelog in `docs/changelog.txt` for a short summary of changes I made over the years. I'm a bit lazy in the documentation, though.<br>
-**Current version:** 2.0.2<br>
-**Last update:** 1 March 2025
+**Current version:** 2.1.0<br>
+**Last update:** 19 January 2026
 

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "pip<24.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poshcar"
+version = "2.1.0"
+description = "Crystal structure engine for VASP POSCAR files"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Andy Paul Chen", email = "la.vache.qui.vit@gmail.com"}
+]
+dependencies =[
+    "ase",
+    "pyvis",
+    "rdkit",
+    "scipy",
+    "pymatgen",
+    "chgnet",
+    "nglview",
+    "pandas",
+    "networkx"
+    ]
+keywords = [
+    "unit cell", 
+]
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
