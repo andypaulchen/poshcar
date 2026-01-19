@@ -13,8 +13,8 @@ from ase.io import read
 from ase.visualize import view
 
 __copyright__  = "Andy Paul Chen"
-__version__    =  "2.1.0"
+__version__    =  "2.1.1"
 __maintainer__ = "Andy Paul Chen"
 __email__      = "la.vache.qui.vit@gmail.com"
 __status__     = "Development"
-__date__       = "24 October 2024"
+__date__       = "19 January 2024"

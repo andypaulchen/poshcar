@@ -13,7 +13,7 @@ Image_colors = ['black', 'blue', 'blue', 'green', 'cyan', 'darkcyan', 'green', '
 bar = '' # For undirected graph; reserve this variable in case needed
 Image_labels = ['', 'c', 'c'+bar, 'b', 'bc', 'bc'+bar, 'b'+bar, 'b'+bar+'c', 'b'+bar+'c'+bar, 'a', 'ac', 'ac'+bar, 'ab', 'abc', 'abc'+bar, 'ab'+bar, 'ab'+bar+'c', 'ab'+bar+'c'+bar, 'a'+bar, 'a'+bar+'c', 'a'+bar+'c'+bar, 'a'+bar+'b', 'a'+bar+'bc', 'a'+bar+'bc'+bar, 'a'+bar+'b'+bar, 'a'+bar+'b'+bar+'c', 'a'+bar+'b'+bar+'c'+bar]
 
-def is_connected(data, tolerance):
+def is_connected(data, tolerance = 0.1):
     # Input crystal structure and tolerance, returns sets of connected components
     # Collect headers
     atomspp = elemindices(data)
@@ -33,9 +33,9 @@ def is_connected(data, tolerance):
     connected_sets = sorted(nx.connected_components(G), key=len)
     return connected_sets, G
 
-def coordination_graph(data, tolerance, verbose = True):
+def coordination_graph(data, tolerance = 0.1, verbose = True):
     # Return graph of coordinations, averaged over element
-    runiq, bme, unav = matrix_bonding_average(data, 'element', tolerance, verbose) # get bonding matrices
+    runiq, bme, unav = matrix_bonding_average(data, 'element', tolerance = tolerance, verbose = verbose) # get bonding matrices
     
     G = nx.MultiDiGraph()
     for i in range(len(runiq)):
