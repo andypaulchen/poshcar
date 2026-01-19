@@ -1,7 +1,8 @@
 # distance: Find distance between sites in cell, in quoted Cartesian coordinates
 
 # Andy Paul Chen, Monday, 9 August 2021, Little Italy, Cleveland, Ohio (National Day of Singapore)
-# 2 Nov 2023 I can't believe I am back again
+# 2 Nov 2023: I can't believe I am back again
+# 19 Jan 2026: Back here to speed up these functions like 60 timwa
 
 from poshcar.cartesian import * # Cartesian coordinates package
 
@@ -106,132 +107,136 @@ def elemindices(data, verbose = True):
     atomspp = pd.DataFrame({'Species': spp, 'Wyckoff Site': res, 'POSCAR Site': res_indexed, 'Occupancy': np.array(occ).astype(float)})
     return atomspp
 
-def matrix_distances(data, verbose = True):
-    atomspp = elemindices(data, verbose = verbose) # Header extraction
-    ns, allcoord = images(data) # allcoord extraction - ns = number of atoms in cell
+def matrix_distances(data, verbose=True):
+    # Distances between atom pairs (in terms of vectors and also distance)
     
-    distance_matrix = np.zeros((27,ns,ns))
-    vectors_matrix = np.zeros((27,ns,ns,3))
-    for i in range(ns): # i: from each atom in unit cell
-        for j in range(ns): # j: to each atom in native/neighbouring cell
-            for virtual in range(27): # for each virtual image
-                vectors_matrix[virtual][i][j] = vector(allcoord[0][i], allcoord[virtual][j])
-                distance_matrix[virtual][i][j] = distance(allcoord[0][i], allcoord[virtual][j])
+    atomspp = elemindices(data, verbose=verbose)
+    ns, allcoord = images(data)  # allcoord: (27, ns, 3)
 
-    if verbose:       
+    R0 = np.asarray(allcoord[0])        # (ns, 3)
+    Rimg = np.asarray(allcoord)         # (27, ns, 3)
+
+    # vectors: (27, ns, ns, 3)
+    vectors_matrix = Rimg[:, None, :, :] - R0[None, :, None, :]
+    # distances: (27, ns, ns)
+    distance_matrix = np.linalg.norm(vectors_matrix, axis=-1)
+
+    if verbose:
         df = pd.DataFrame(distance_matrix[0], columns=list(atomspp['POSCAR Site']), index=list(atomspp['POSCAR Site']))
         print("Distances between atoms (native cell only):")
-        display(df) # Display example (native cell)
-    return vectors_matrix, distance_matrix  
+        display(df)
 
-def matrix_bonding(data, tolerance, verbose = True):
-    distance_matrix = matrix_distances(data, verbose = False)[1] # Extract distance matrix, atom indices
-    atomspp = elemindices(data, verbose = verbose)
-    ns = len(list(atomspp['POSCAR Site']))
-    covalent_radius_a = [x/100 for x in covalent_radius_pm]
-    # Retrieve atomic numbers
-    atomnos = np.zeros(ns).astype(int)
-    for k in range(ns): atomnos[k] = periodic_table.index(list(atomspp['Species'])[k]) # extract atomic numbers
+    return vectors_matrix, distance_matrix
+
+def matrix_bonding(data, tolerance = 0.1, verbose=True):
+    # Use distances, covalent atomic radii and thresholding to identify "bonding" pairs of atoms
     
-    # Construct bonding matrix
-    # interatomic distances smaller than (radius(1) + radius(2))*(1+tolerance factor) are bonded
-    bonding_matrix = np.zeros((27,ns,ns)).astype(int)
-    for i in range(ns): # i: from atom
-        for j in range(ns): # j: to atom
-            ei = atomnos[i] # atomic number of species i
-            ej = atomnos[j] # atomic number of species j
-            for virtual in range(27): # for each virtual image
-                if distance_matrix[virtual][i][j] <= (covalent_radius_a[ei]+covalent_radius_a[ej])*(tolerance+1):
-                    if (i != j) and not (nobond[ei]==1 and nobond[ej]==1) and not(nobond[ei]==2 or nobond[ej]==2):
-                        bonding_matrix[virtual][i][j] = 1
-    
+    distance_matrix = matrix_distances(data, verbose=False)[1]  # (27, ns, ns)
+    atomspp = elemindices(data, verbose=verbose)
+    species = np.asarray(atomspp['Species'])
+    ns = species.size
+
+    # Atomic numbers (vectorized)
+    atomnos = np.array([periodic_table.index(s) for s in species], dtype=int)
+
+    covrad = np.asarray(covalent_radius_pm) / 100.0
+    radii = covrad[atomnos]                        # (ns,)
+    nob = np.asarray(nobond)[atomnos]              # (ns,)
+
+    # Pairwise radius sums
+    rsum = radii[:, None] + radii[None, :]         # (ns, ns)
+    cutoff = rsum * (1.0 + tolerance)
+
+    # Distance condition
+    bonded = distance_matrix <= cutoff[None, :, :]  # (27, ns, ns)
+
+    # Remove self-bonds
+    eye = np.eye(ns, dtype=bool)
+    bonded &= ~eye[None, :, :]
+
+    # nobond rules
+    bonded &= ~((nob[:, None] == 1) & (nob[None, :] == 1))[None, :, :]
+    bonded &= ~((nob[:, None] == 2) | (nob[None, :] == 2))[None, :, :]
+    bonding_matrix = bonded.astype(np.int8)
+
     if verbose:
         df = pd.DataFrame(bonding_matrix[0], columns=list(atomspp['POSCAR Site']), index=list(atomspp['POSCAR Site']))
         print("Bonding between atoms (native cell only):")
         display(df) # Display example (native cell)
+
     return bonding_matrix
 
-def matrix_bonding_average(data, mode, tolerance, bme_correlated = 'amaiwana', verbose = True):
+def matrix_bonding_average(data, mode, tolerance = 0.1, bme_correlated = 'amaiwana', verbose = True):
     # Average bonding matrix, can also be used for site-disordered stuff
     # mode: string input, first letter for [s]ite classification or [e]lement species classification
     # Edit of 10 Sep 2024: deviations from the mean are recorded in a separate matrix to output
-    # bme_correlated specified if another averaged matrix needs to be used (this is in the case of correlated disorder)
+    # bme_correlated specified if another averaged matrix needs to be used (use this in the case of correlated disorder)
+    
+    atomspp = elemindices(data, verbose=verbose)
+    weights = np.asarray(atomspp['Occupancy'])
 
-    atomspp = elemindices(data, verbose = verbose) # What atoms are in here
-    weights = atomspp['Occupancy']
-    bms = matrix_bonding(data, tolerance, verbose = False).sum(0)
+    # Sum bonding matrices once
+    bms = matrix_bonding(data, tolerance, verbose=False).sum(axis=0)
 
-    # Mode 
+    # Classification
     classification = mode[0].upper()
-    if classification == 'E': arrayclass = np.array(atomspp['Species'])
-    elif classification == 'S': arrayclass = np.array(atomspp['Wyckoff Site'])
-    else: 
-        print("Invalid mode -- please enter 'site' or 'element'! Defaulting to element species classification...\n")
-        arrayclass = np.array(atomspp['Species'])
-    
-    runiq, runiq_index, runiq_count = np.unique(arrayclass, return_counts=True, return_index=True)
-    runiq = runiq[np.argsort(runiq_index)]
-    runiq_count = runiq_count[np.argsort(runiq_index)] # preserve order
-    us = len(runiq) # How many unique species in cell
-    # target bme
-    bme = np.zeros([us, us])
-    if type(bme_correlated) != str: bmet = bme_correlated
-    
-    res_partition = np.resize(np.cumsum(runiq_count),runiq_count.size -1) # partition plan of array
-    bm_split_by_rows = np.split(bms,res_partition,axis=0)
-    weights_split = np.split(weights,res_partition)
-    stackerv_bma = []
-    stackerv_bmc = []
-    for iu in range(us): # rows split
-        bm_split_by_columns = np.split(bm_split_by_rows[iu],res_partition,axis=1)
-        stackerh_bma = []
-        stackerh_bmc = []
-        for ju in range(us): # iterate by column
-            summed_column = np.dot(bm_split_by_columns[ju],weights_split[ju])
-            bme[iu][ju] = np.average(summed_column, weights = weights_split[iu])
-            summed_column = summed_column.reshape(-1,1)
-            piece = summed_column.copy() # this piece goes into bma
-            if type(bme_correlated) == str: piece.fill(bme[iu][ju]) # make a matrix full of the same number
-            else: piece.fill(bmet[iu][ju]) # use target to make bma
-            piece = piece.reshape(-1,1)
-            stackerh_bma.append(piece) # stack horizontal bma
-            stackerh_bmc.append(summed_column)
-        slab_bma = np.hstack(stackerh_bma)
-        slab_bmc = np.hstack(stackerh_bmc)
-        stackerv_bma.append(slab_bma) # stack vertical
-        stackerv_bmc.append(slab_bmc) # stack vertical
-    # bme is made by this point
+    if classification == 'E':
+        labels = np.asarray(atomspp['Species'])
+    elif classification == 'S':
+        labels = np.asarray(atomspp['Wyckoff Site'])
+    else:
+        labels = np.asarray(atomspp['Species'])
 
-    bma = np.vstack(stackerv_bma) # bma is made here
-    bmc = np.vstack(stackerv_bmc) # bmc is made here
-    
-    # Display and return bme
+    # Unique labels, preserve order
+    uniq, first_idx = np.unique(labels, return_index=True)
+    order = np.argsort(first_idx)
+    uniq = uniq[order]
+
+    us = len(uniq)
+
+    # Build index groups
+    groups = [np.where(labels == u)[0] for u in uniq]
+
+    # Preallocate
+    bme = np.zeros((us, us))
+
+    # Core computation (vectorized blocks)
+    for i, gi in enumerate(groups):
+        wi = weights[gi]
+        wi_sum = wi.sum()
+
+        for j, gj in enumerate(groups):
+            wj = weights[gj]
+            Bij = bms[np.ix_(gi, gj)]
+
+            bme[i, j] = np.einsum("i,ij,j->", wi, Bij, wj) / wi_sum
+
+    # Unaverageness without explicit bma/bmc
+    if isinstance(bme_correlated, str):
+        target = bme
+    else:
+        target = np.asarray(bme_correlated)
+
+    bme_expanded = np.zeros_like(bms)
+    for i, gi in enumerate(groups):
+        for j, gj in enumerate(groups):
+            bme_expanded[np.ix_(gi, gj)] = target[i, j]
+
+    unaverageness = np.linalg.norm(bme_expanded - bms, ord="fro")
+
     if verbose:
-        # Display and return bme
-        df = pd.DataFrame(bme, columns=runiq, index=runiq)
+        df = pd.DataFrame(bme, index=uniq, columns=uniq)
         print("bme - average local coordination by environment:")
-        display(df) # Display example (native cell)
+        display(df)
+        print("Unaverageness:", unaverageness)
 
-        # Display and return bma
-        #df1 = pd.DataFrame(bma, columns=runiq, index=atomspp['POSCAR Site'])
-        #print("bma - average local coordination by environment, expanded")
-        #display(df1) # Display example (native cell)
+    return uniq, bme, unaverageness
 
-        # Display and return bmc
-        #df2 = pd.DataFrame(bmc, columns=runiq, index=atomspp['POSCAR Site'])
-        #print("bme - average local coordination by POSCAR site:")
-        #display(df2) # Display example (native cell)
-    
-    # Calculate "unaverageness" aka Pauling-5 penalty 
-    unaverageness = np.linalg.norm(bma-bmc, 'fro')
-    if verbose: print("Unaverageness: ", unaverageness)
-
-    return runiq, bme, unaverageness
-
-def crashtest(data, tolerance, verbose = True):
+def crashtest(data, tolerance = 0.1, verbose = True):
     # Determine if an atom pair is too close to one another
     # tolerance is a percentage value (0.0-1.0)
     # 26 Jul 2024: returns crash matrix instead of bool output
+    # This function is not yet numpy-optimized (too useless for now)
 
     tolerance = min(abs(tolerance),1.0)
     if verbose: print ("Tolerance: ", tolerance)
